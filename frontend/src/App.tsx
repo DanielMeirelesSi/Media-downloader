@@ -1,15 +1,23 @@
 import { useState } from "react"
 
 import "./App.css"
-import { getMediaInfo } from "./services/mediaApi"
+import {
+  downloadMedia,
+  getMediaInfo,
+} from "./services/mediaApi"
 import type { MediaInfo } from "./types/media"
 
 
 function App() {
   const [url, setUrl] = useState("")
   const [media, setMedia] = useState<MediaInfo | null>(null)
+
   const [loading, setLoading] = useState(false)
+  const [downloadingFormat, setDownloadingFormat] =
+    useState<string | null>(null)
+
   const [error, setError] = useState<string | null>(null)
+
 
   async function handleAnalyze() {
     if (!url.trim()) {
@@ -35,10 +43,31 @@ function App() {
     }
   }
 
+
+  async function handleDownload(formatId: string) {
+    try {
+      setDownloadingFormat(formatId)
+      setError(null)
+
+      await downloadMedia(url, formatId)
+    } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message)
+      } else {
+        setError("Ocorreu um erro durante o download.")
+      }
+    } finally {
+      setDownloadingFormat(null)
+    }
+  }
+
+
   return (
     <main className="page">
       <section className="hero">
-        <span className="eyebrow">MEDIA DOWNLOADER</span>
+        <span className="eyebrow">
+          MEDIA DOWNLOADER
+        </span>
 
         <h1>Baixe sua mídia.</h1>
 
@@ -68,7 +97,9 @@ function App() {
         </div>
 
         {error && (
-          <p className="error">{error}</p>
+          <p className="error">
+            {error}
+          </p>
         )}
       </section>
 
@@ -93,28 +124,37 @@ function App() {
             )}
 
             <div className="formats">
-              {media.formats.map((format) => (
-                <div
-                  className="format"
-                  key={format.format_id}
-                >
-                  <div>
-                    <strong>{format.quality}</strong>
+              {media.formats.map((format) => {
+                const isDownloading =
+                  downloadingFormat === format.format_id
+
+                return (
+                  <button
+                    className="format"
+                    key={format.format_id}
+                    onClick={() =>
+                      handleDownload(format.format_id)
+                    }
+                    disabled={downloadingFormat !== null}
+                  >
+                    <div>
+                      <strong>
+                        {format.quality}
+                      </strong>
+
+                      <span>
+                        {format.ext?.toUpperCase()}
+                      </span>
+                    </div>
 
                     <span>
-                      {format.ext?.toUpperCase()}
+                      {isDownloading
+                        ? "Baixando..."
+                        : "Baixar"}
                     </span>
-                  </div>
-
-                  <span>
-                    {format.type === "audio"
-                      ? "Áudio"
-                      : format.has_audio
-                        ? "Vídeo + áudio"
-                        : "Vídeo"}
-                  </span>
-                </div>
-              ))}
+                  </button>
+                )
+              })}
             </div>
           </div>
         </section>

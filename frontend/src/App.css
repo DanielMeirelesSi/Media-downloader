@@ -172,6 +172,10 @@
   border-radius: 10px;
 
   background: #161616;
+  width: 100%;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .format > div {
@@ -215,4 +219,13 @@
   .formats {
     grid-template-columns: 1fr;
   }
+}
+.format:hover:not(:disabled) {
+  background: #1c1c1c;
+  border-color: #3a3a3a;
+}
+
+.format:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
