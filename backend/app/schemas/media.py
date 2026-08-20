@@ -1,8 +1,13 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl
 
 
 class MediaInfoRequest(BaseModel):
     url: HttpUrl
+
+
+class MediaDownloadRequest(BaseModel):
+    url: HttpUrl
+    format_id: str = Field(min_length=1, max_length=100)
 
 
 class MediaFormatResponse(BaseModel):

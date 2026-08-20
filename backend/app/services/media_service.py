@@ -1,3 +1,7 @@
+import shutil
+import tempfile
+from pathlib import Path
+
 import yt_dlp
 from yt_dlp.utils import DownloadError
 
@@ -86,6 +90,108 @@ def _extract_formats(info: dict) -> list[dict]:
     )
 
     return formats
+
+
+def download_media(url: str, format_id: str):
+    temp_dir = Path(tempfile.mkdtemp(prefix="media-downloader-"))
+
+    try:
+        info_options = {
+            "quiet": True,
+            "no_warnings": True,
+            "noplaylist": True,
+        }
+
+        with yt_dlp.YoutubeDL(info_options) as ydl:
+            info = ydl.extract_info(url, download=False)
+
+        selected_format = next(
+            (
+                media_format
+                for media_format in info.get("formats") or []
+                if str(media_format.get("format_id")) == format_id
+            ),
+            None,
+        )
+
+        if selected_format is None:
+            raise MediaExtractionError(
+                "Selected format is not available."
+            )
+
+        has_video = selected_format.get("vcodec") not in (None, "none")
+        has_audio = selected_format.get("acodec") not in (None, "none")
+
+        if has_video and not has_audio:
+            format_selector = f"{format_id}+bestaudio/best"
+        else:
+            format_selector = format_id
+
+        download_options = {
+            "quiet": True,
+            "no_warnings": True,
+            "noplaylist": True,
+            "format": format_selector,
+            "outtmpl": str(temp_dir / "media.%(ext)s"),
+            "merge_output_format": "mp4",
+        }
+
+        with yt_dlp.YoutubeDL(download_options) as ydl:
+            downloaded_info = ydl.extract_info(url, download=True)
+
+        files = [
+            file
+            for file in temp_dir.iterdir()
+            if file.is_file()
+            and file.suffix not in {".part", ".ytdl"}
+        ]
+
+        if not files:
+            raise MediaExtractionError(
+                "The media file could not be created."
+            )
+
+        file_path = max(
+            files,
+            key=lambda file: file.stat().st_mtime,
+        )
+
+        title = downloaded_info.get("title") or "media"
+        safe_title = "".join(
+            char
+            for char in title
+            if char not in '<>:"/\\|?*'
+        ).strip()
+
+        if not safe_title:
+            safe_title = "media"
+
+        download_name = f"{safe_title}{file_path.suffix}"
+
+        return file_path, download_name, temp_dir
+
+    except DownloadError as error:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+        message = str(error).lower()
+
+        if "requested format is not available" in message:
+            raise MediaExtractionError(
+                "Selected format is no longer available."
+            )
+
+        if "login" in message or "cookies" in message:
+            raise MediaExtractionError(
+                "This media may require authentication."
+            )
+
+        raise MediaExtractionError(
+            "Unable to download this media."
+        )
+
+    except MediaExtractionError:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise
 
 
 def get_media_info(url: str):
