@@ -1,11 +1,18 @@
 import { useState } from "react"
 
 import "./App.css"
+
 import {
   downloadMedia,
   getMediaInfo,
 } from "./services/mediaApi"
+
 import type { MediaInfo } from "./types/media"
+
+import {
+  formatDuration,
+  formatFileSize,
+} from "./utils/formatters"
 
 
 function App() {
@@ -62,6 +69,11 @@ function App() {
   }
 
 
+  const duration = media
+    ? formatDuration(media.duration)
+    : null
+
+
   return (
     <main className="page">
       <section className="hero">
@@ -113,14 +125,24 @@ function App() {
           )}
 
           <div className="media-content">
-            <span className="platform">
-              {media.platform}
-            </span>
+            <div className="media-meta">
+              {media.platform && (
+                <span className="platform">
+                  {media.platform}
+                </span>
+              )}
+
+              {duration && (
+                <span>{duration}</span>
+              )}
+            </div>
 
             <h2>{media.title}</h2>
 
             {media.uploader && (
-              <p>{media.uploader}</p>
+              <p className="uploader">
+                {media.uploader}
+              </p>
             )}
 
             <div className="formats">
@@ -128,30 +150,48 @@ function App() {
                 const isDownloading =
                   downloadingFormat === format.format_id
 
+                const fileSize =
+                  formatFileSize(format.filesize)
+
+                const isAudio =
+                  format.type === "audio"
+
                 return (
                   <button
-                    className="format"
+                    className={`format ${
+                      isAudio ? "format-audio" : ""
+                    }`}
                     key={format.format_id}
                     onClick={() =>
                       handleDownload(format.format_id)
                     }
                     disabled={downloadingFormat !== null}
                   >
-                    <div>
+                    <div className="format-info">
                       <strong>
-                        {format.quality}
+                        {isAudio
+                          ? "Somente áudio"
+                          : format.quality}
                       </strong>
 
                       <span>
-                        {format.ext?.toUpperCase()}
+                        {isAudio
+                          ? `${format.quality} • ${format.ext?.toUpperCase()}`
+                          : format.ext?.toUpperCase()}
                       </span>
                     </div>
 
-                    <span>
-                      {isDownloading
-                        ? "Baixando..."
-                        : "Baixar"}
-                    </span>
+                    <div className="format-action">
+                      {fileSize && (
+                        <span>{fileSize}</span>
+                      )}
+
+                      <strong>
+                        {isDownloading
+                          ? "Preparando..."
+                          : "Baixar"}
+                      </strong>
+                    </div>
                   </button>
                 )
               })}
