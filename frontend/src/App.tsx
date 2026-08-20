@@ -1,121 +1,125 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState } from "react"
+
+import "./App.css"
+import { getMediaInfo } from "./services/mediaApi"
+import type { MediaInfo } from "./types/media"
+
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [url, setUrl] = useState("")
+  const [media, setMedia] = useState<MediaInfo | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleAnalyze() {
+    if (!url.trim()) {
+      setError("Cole um link para continuar.")
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    setMedia(null)
+
+    try {
+      const result = await getMediaInfo(url)
+      setMedia(result)
+    } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message)
+      } else {
+        setError("Ocorreu um erro inesperado.")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <main className="page">
+      <section className="hero">
+        <span className="eyebrow">MEDIA DOWNLOADER</span>
+
+        <h1>Baixe sua mídia.</h1>
+
+        <p>
+          Cole o link de um vídeo público e escolha como deseja baixar.
+        </p>
+
+        <div className="search">
+          <input
+            type="url"
+            placeholder="Cole o link aqui..."
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                handleAnalyze()
+              }
+            }}
+          />
+
+          <button
+            onClick={handleAnalyze}
+            disabled={loading}
+          >
+            {loading ? "Analisando..." : "Analisar"}
+          </button>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+
+        {error && (
+          <p className="error">{error}</p>
+        )}
       </section>
 
-      <div className="ticks"></div>
+      {media && (
+        <section className="result">
+          {media.thumbnail && (
+            <img
+              src={media.thumbnail}
+              alt={media.title || "Thumbnail"}
+            />
+          )}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+          <div className="media-content">
+            <span className="platform">
+              {media.platform}
+            </span>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+            <h2>{media.title}</h2>
+
+            {media.uploader && (
+              <p>{media.uploader}</p>
+            )}
+
+            <div className="formats">
+              {media.formats.map((format) => (
+                <div
+                  className="format"
+                  key={format.format_id}
+                >
+                  <div>
+                    <strong>{format.quality}</strong>
+
+                    <span>
+                      {format.ext?.toUpperCase()}
+                    </span>
+                  </div>
+
+                  <span>
+                    {format.type === "audio"
+                      ? "Áudio"
+                      : format.has_audio
+                        ? "Vídeo + áudio"
+                        : "Vídeo"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+    </main>
   )
 }
 
