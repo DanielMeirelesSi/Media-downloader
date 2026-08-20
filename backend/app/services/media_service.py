@@ -11,8 +11,8 @@ class MediaExtractionError(Exception):
 
 
 def _extract_formats(info: dict) -> list[dict]:
-    formats = []
-    seen_formats = set()
+    video_formats = {}
+    audio_formats = []
 
     for media_format in info.get("formats") or []:
         format_id = media_format.get("format_id")
@@ -40,38 +40,22 @@ def _extract_formats(info: dict) -> list[dict]:
         )
 
         if has_video:
-            media_type = "video"
+            dimensions = [
+                value
+                for value in (width, height)
+                if isinstance(value, (int, float)) and value > 0
+            ]
 
-            if height:
-                quality = f"{height}p"
+            resolution = int(min(dimensions)) if len(dimensions) == 2 else 0
+
+            if resolution:
+                quality = f"{resolution}p"
             else:
-                quality = media_format.get("format_note") or "video"
+                quality = media_format.get("format_note") or "Vídeo"
 
-        else:
-            media_type = "audio"
-            bitrate = media_format.get("abr")
-
-            if bitrate:
-                quality = f"{round(bitrate)} kbps"
-            else:
-                quality = "audio"
-
-        format_key = (
-            quality,
-            extension,
-            has_video,
-            has_audio,
-        )
-
-        if format_key in seen_formats:
-            continue
-
-        seen_formats.add(format_key)
-
-        formats.append(
-            {
+            candidate = {
                 "format_id": str(format_id),
-                "type": media_type,
+                "type": "video",
                 "quality": quality,
                 "ext": extension,
                 "width": width,
@@ -79,17 +63,63 @@ def _extract_formats(info: dict) -> list[dict]:
                 "fps": fps,
                 "filesize": filesize,
                 "has_audio": has_audio,
+                "_resolution": resolution,
             }
-        )
 
-    formats.sort(
-        key=lambda item: (
-            item["type"] == "audio",
-            -(item["height"] or 0),
-        )
+            existing = video_formats.get(quality)
+
+            def score(item):
+                return (
+                    item["ext"] == "mp4",
+                    item["has_audio"],
+                    item["fps"] or 0,
+                )
+
+            if existing is None or score(candidate) > score(existing):
+                video_formats[quality] = candidate
+
+        else:
+            audio_formats.append(
+                {
+                    "format_id": str(format_id),
+                    "type": "audio",
+                    "quality": (
+                        f"{round(media_format.get('abr'))} kbps"
+                        if media_format.get("abr")
+                        else "Áudio"
+                    ),
+                    "ext": extension,
+                    "width": None,
+                    "height": None,
+                    "fps": None,
+                    "filesize": filesize,
+                    "has_audio": True,
+                    "_bitrate": media_format.get("abr") or 0,
+                }
+            )
+
+    videos = sorted(
+        video_formats.values(),
+        key=lambda item: item["_resolution"],
+        reverse=True,
     )
 
-    return formats
+    result = []
+
+    for video in videos:
+        video.pop("_resolution", None)
+        result.append(video)
+
+    if audio_formats:
+        best_audio = max(
+            audio_formats,
+            key=lambda item: item["_bitrate"],
+        )
+
+        best_audio.pop("_bitrate", None)
+        result.append(best_audio)
+
+    return result
 
 
 def download_media(url: str, format_id: str):
