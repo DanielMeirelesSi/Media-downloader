@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 import "./App.css"
 
@@ -17,6 +17,8 @@ import {
 
 function App() {
   const [url, setUrl] = useState("")
+  const currentUrlRef = useRef(url)
+  const [analyzedUrl, setAnalyzedUrl] = useState<string | null>(null)
   const [media, setMedia] = useState<MediaInfo | null>(null)
 
   const [loading, setLoading] = useState(false)
@@ -26,8 +28,21 @@ function App() {
   const [error, setError] = useState<string | null>(null)
 
 
+  function handleUrlChange(nextUrl: string) {
+    currentUrlRef.current = nextUrl
+    setUrl(nextUrl)
+
+    if (media !== null) {
+      setMedia(null)
+      setAnalyzedUrl(null)
+    }
+  }
+
+
   async function handleAnalyze() {
-    if (!url.trim()) {
+    const requestUrl = url
+
+    if (!requestUrl.trim()) {
       setError("Cole um link para continuar.")
       return
     }
@@ -35,11 +50,22 @@ function App() {
     setLoading(true)
     setError(null)
     setMedia(null)
+    setAnalyzedUrl(null)
 
     try {
-      const result = await getMediaInfo(url)
+      const result = await getMediaInfo(requestUrl)
+
+      if (currentUrlRef.current !== requestUrl) {
+        return
+      }
+
+      setAnalyzedUrl(requestUrl)
       setMedia(result)
     } catch (error) {
+      if (currentUrlRef.current !== requestUrl) {
+        return
+      }
+
       if (error instanceof Error) {
         setError(error.message)
       } else {
@@ -52,11 +78,16 @@ function App() {
 
 
   async function handleDownload(formatId: string) {
+    if (analyzedUrl === null) {
+      setError("Analise a mídia novamente antes de baixar.")
+      return
+    }
+
     try {
       setDownloadingFormat(formatId)
       setError(null)
 
-      await downloadMedia(url, formatId)
+      await downloadMedia(analyzedUrl, formatId)
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message)
@@ -92,7 +123,9 @@ function App() {
             type="url"
             placeholder="Cole o link aqui..."
             value={url}
-            onChange={(event) => setUrl(event.target.value)}
+            onChange={(event) =>
+              handleUrlChange(event.target.value)
+            }
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 handleAnalyze()
