@@ -1,7 +1,22 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.media import router as media_router
+
+
+DEFAULT_CORS_ORIGINS = "http://localhost:5173"
+
+
+def get_cors_origins() -> list[str]:
+    origins = os.environ.get("CORS_ORIGINS") or DEFAULT_CORS_ORIGINS
+
+    return [
+        origin.strip()
+        for origin in origins.split(",")
+        if origin.strip()
+    ]
 
 
 app = FastAPI(
@@ -12,9 +27,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-    ],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
