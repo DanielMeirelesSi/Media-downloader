@@ -88,7 +88,7 @@ def _extract_formats(info: dict) -> list[dict]:
                         if media_format.get("abr")
                         else "Áudio"
                     ),
-                    "ext": extension,
+                    "ext": "mp3",
                     "width": None,
                     "height": None,
                     "fps": None,
@@ -151,8 +151,11 @@ def download_media(url: str, format_id: str):
 
         has_video = selected_format.get("vcodec") not in (None, "none")
         has_audio = selected_format.get("acodec") not in (None, "none")
+        is_audio_only = has_audio and not has_video
 
-        if has_video and not has_audio:
+        if is_audio_only:
+            format_selector = format_id
+        elif has_video and not has_audio:
             format_selector = f"{format_id}+bestaudio/best"
         else:
             format_selector = format_id
@@ -165,6 +168,15 @@ def download_media(url: str, format_id: str):
             "outtmpl": str(temp_dir / "media.%(ext)s"),
             "merge_output_format": "mp4",
         }
+
+        if is_audio_only:
+            download_options["postprocessors"] = [
+                {
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": "0",
+                },
+            ]
 
         with yt_dlp.YoutubeDL(download_options) as ydl:
             downloaded_info = ydl.extract_info(url, download=True)
@@ -180,6 +192,18 @@ def download_media(url: str, format_id: str):
             raise MediaExtractionError(
                 "The media file could not be created."
             )
+
+        if is_audio_only:
+            files = [
+                file
+                for file in files
+                if file.suffix.lower() == ".mp3"
+            ]
+
+            if not files:
+                raise MediaExtractionError(
+                    "The media file could not be created."
+                )
 
         file_path = max(
             files,

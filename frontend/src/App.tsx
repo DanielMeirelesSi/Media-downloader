@@ -209,7 +209,7 @@ function App() {
 
                       <span>
                         {isAudio
-                          ? `${format.quality} • ${format.ext?.toUpperCase()}`
+                          ? `${format.quality} • MP3`
                           : format.ext?.toUpperCase()}
                       </span>
                     </div>
